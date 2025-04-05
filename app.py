@@ -93,9 +93,11 @@ def get_temp_key():
         if not selected_key:
             selected_key = key_dict_ref[times[-1]]
         
+        time_only = current_time.strftime('%H:%M:%S')
+        
         supabase.table("students").update({
             "calls": user["calls"] + 1,
-            "last_key_time": current_time.isoformat()
+            "last_key_time": time_only
         }).eq("pid", PID).execute()
         
         return jsonify({
