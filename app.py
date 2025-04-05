@@ -60,6 +60,52 @@ def add_user():
         print(f"Error processing request: {e}")
         return jsonify({"error": f"Error processing request: {str(e)}"}), 500
 
+@app.route("/temp_key", methods=["POST"])
+def get_temp_key():
+    try:
+        if request.is_json:
+            data = request.json
+        elif request.data:
+            data = json.loads(request.data.decode('utf-8'))
+        else:
+            return jsonify({"error": "No data provided"}), 400
+            
+        PID = data.get("PID")
+        
+        if not PID:
+            return jsonify({"error": "Missing PID parameter"}), 400
+
+        user_query = supabase.table("students").select("*").eq("pid", PID).execute()
+        
+        if not user_query.data:
+            return jsonify({"error": "User not found"}), 404
+            
+        user = user_query.data[0]
+        
+        current_time = datetime.now()
+        selected_key = None
+        
+        for time_key in times:
+            if current_time >= time_key:
+                selected_key = key_dict_ref[time_key]
+                break
+                
+        if not selected_key:
+            selected_key = key_dict_ref[times[-1]]
+        
+        supabase.table("students").update({
+            "calls": user["calls"] + 1,
+            "last_key_time": current_time.isoformat()
+        }).eq("pid", PID).execute()
+        
+        return jsonify({
+            "key": selected_key,
+            "expiry": (current_time + timedelta(minutes=30)).isoformat()
+        }), 200
+        
+    except Exception as e:
+        print(f"Error processing request: {e}")
+        return jsonify({"error": f"Error processing request: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
