@@ -22,7 +22,8 @@ def create_key_dict():
     return key_dict
 
 key_dict_ref = create_key_dict()
-times = sorted(key_dict_ref.keys(), reverse=True)
+# Sort times in ascending order for proper key progression
+times = sorted(key_dict_ref.keys())
 
 @app.route("/health", methods=["POST"])
 def check_health():
@@ -83,15 +84,30 @@ def get_temp_key():
         user = user_query.data[0]
         
         current_time = datetime.now()
+        print(f"Current time: {current_time}")
+        
+        # Find the next key time that's after the current time
         selected_key = None
+        key_time = None
         
         for time_key in times:
-            if current_time >= time_key:
-                selected_key = key_dict_ref[time_key]
+            print(f"Checking time key: {time_key}")
+            if time_key > current_time:
+                index = times.index(time_key) - 1
+                if index >= 0:
+                    key_time = times[index]
+                    selected_key = key_dict_ref[key_time]
                 break
-                
+        
         if not selected_key:
-            selected_key = key_dict_ref[times[-1]]
+            if current_time < times[0]:
+                key_time = times[0]
+                selected_key = key_dict_ref[key_time]
+            else:
+                key_time = times[-1]
+                selected_key = key_dict_ref[key_time]
+        
+        print(f"Selected key: {selected_key} for time: {key_time}")
         
         time_only = current_time.strftime('%H:%M:%S')
         
