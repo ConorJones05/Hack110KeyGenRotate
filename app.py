@@ -116,7 +116,7 @@ def get_temp_key():
         }).eq("pid", PID).execute()
 
         return jsonify({
-            "key": selected_key,
+            "key": os.environ.get(selected_key),
             "expiry": (current_time + timedelta(minutes=30)).isoformat()
         }), 200
 
