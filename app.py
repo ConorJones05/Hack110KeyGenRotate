@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import os
 import json
 from supabase import create_client, Client
+from zoneinfo import ZoneInfo
 
 load_dotenv()
 
@@ -14,10 +15,13 @@ supabase: Client = create_client(url, key)
 
 app = Flask(__name__)
 
+EASTERN = ZoneInfo("America/New_York")
+
 def create_key_dict():
     key_dict = {}
-    base_time = datetime(year=2025, month=4, day=5, hour=9, minute=0, second=0)
-    for i in range(38):
+    # Use timezone-aware datetime for 9:00 AM Eastern Time.
+    base_time = datetime(2025, 4, 5, 9, 0, 0, tzinfo=EASTERN)
+    for i in range(36):
         key_time = base_time + timedelta(minutes=30 * i)
         key_dict[key_time] = f"OPENAIKEY_{i}"
     return key_dict
@@ -76,39 +80,36 @@ def get_temp_key():
             return jsonify({"error": "Missing PID parameter"}), 400
 
         user_query = supabase.table("students").select("*").eq("pid", PID).execute()
-
         if not user_query.data:
             return jsonify({"error": "User not found"}), 404
 
         user = user_query.data[0]
-        current_time = datetime.now()
-        print(f"Current time: {current_time}")
+        # Get current time in Eastern Time.
+        current_time = datetime.now(EASTERN)
+        print(f"Current Eastern time: {current_time}")
 
         selected_key = None
         key_time = None
-
-        for time_key in times:
+        for time_key in sorted(key_dict_ref.keys()):
             print(f"Checking time key: {time_key}")
             if time_key > current_time:
-                index = times.index(time_key) - 1
+                index = sorted(key_dict_ref.keys()).index(time_key) - 1
                 if index >= 0:
-                    key_time = times[index]
+                    key_time = sorted(key_dict_ref.keys())[index]
                     selected_key = key_dict_ref[key_time]
                 break
 
         if not selected_key:
-            if current_time < times[0]:
-                key_time = times[0]
+            if current_time < min(key_dict_ref.keys()):
+                key_time = min(key_dict_ref.keys())
                 selected_key = key_dict_ref[key_time]
             else:
-                key_time = times[-1]
+                key_time = max(key_dict_ref.keys())
                 selected_key = key_dict_ref[key_time]
 
         print(f"Selected key: {selected_key} for time: {key_time}")
-
         time_only = current_time.strftime('%H:%M:%S')
 
-        # Update the student's record (assuming your supabase call works correctly).
         supabase.table("students").update({
             "calls": user["calls"] + 1,
             "last_key_time": time_only
@@ -122,6 +123,3 @@ def get_temp_key():
     except Exception as e:
         print(f"Error processing request: {e}")
         return jsonify({"error": f"Error processing request: {str(e)}"}), 500
-
-if __name__ == "__main__":
-    app.run(debug=True)
